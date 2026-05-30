@@ -3,7 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk'); 
 const multer = require('multer');
-const pdfParse = require('pdf-parse'); // <-- THE MISSING TOOL IS BACK!
+
+// THE V2 IMPORT: We specifically extract the PDFParse class
+const { PDFParse } = require('pdf-parse'); 
 
 const app = express();
 app.use(cors());
@@ -21,31 +23,26 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         let extractedText = "No source document provided.";
         let hasDocument = false; 
 
-        // 4. THE CLEANED DIAGNOSTIC PROBE
-        // 4. THE CALIBRATED EXTRACTION PIPELINE
         if (req.file) {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
                     
-                    // --- THE FIX ---
-                    // We dynamically check if it's a direct function or hidden inside the toolbox
-                    const extractPdf = typeof pdfParse === 'function' ? pdfParse : pdfParse.PDFParse || pdfParse.default;
+                    // THE V2 EXTRACTION LOGIC
+                    // We initialize the new parser class and pass the file buffer into the 'data' property
+                    const parser = new PDFParse({ data: req.file.buffer });
                     
-                    if (!extractPdf) {
-                        throw new Error("Could not locate the extraction function inside pdf-parse.");
-                    }
-
-                    // Now we run the actual tool!
-                    const pdfData = await extractPdf(req.file.buffer);
-                    // ---------------
+                    // We extract the text
+                    const pdfData = await parser.getText();
+                    
+                    // We destroy the parser to free up server memory
+                    await parser.destroy();
                     
                     extractedText = pdfData.text;
                     hasDocument = true;
                     
                     console.log(`✅ PDF Extracted! Found ${extractedText.length} characters of text.`);
                     
-                    // Safety check for scanned PDFs
                     if (extractedText.trim().length < 50) {
                         console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
                     }
