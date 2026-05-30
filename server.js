@@ -3,46 +3,50 @@ const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk'); 
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+const pdfParse = require('pdf-parse'); // The package
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. CONFIGURE MULTER: Tell it to hold uploaded files in memory
 const upload = multer({ storage: multer.memoryStorage() });
-
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// 2. ADD MIDDLEWARE: `upload.single('document')` intercepts the file sent from the frontend
 app.post('/api/generate', upload.single('document'), async (req, res) => {
     console.log("🛎️ DING! Order received. Waking up the Real Groq AI Chef...");
 
     try {
-        // 3. UNPACK THE DATA: Because we are sending files, the frontend has to send the JSON as a string.
         const order = JSON.parse(req.body.data);
         
         let extractedText = "No source document provided.";
+        let hasDocument = false; 
 
-        // 4. EXTRACT THE PDF TEXT
         if (req.file) {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
-                if (req.file.mimetype === 'application/pdf') {
-                    const pdfData = await pdfParse(req.file.buffer);
+                if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
+                    // THE FIX: Bulletproof way to call pdfParse whether it's an object or a function
+                    const parseFunction = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
+                    const pdfData = await parseFunction(req.file.buffer);
+                    
                     extractedText = pdfData.text;
-                    console.log("✅ PDF Text Extracted Successfully!");
+                    hasDocument = true;
+                    
+                    console.log(`✅ PDF Extracted! Found ${extractedText.length} characters of text.`);
+                    
+                    if (extractedText.trim().length < 50) {
+                        console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
+                    }
                 } else {
-                    // Fallback for standard text files
                     extractedText = req.file.buffer.toString('utf-8');
-                    console.log("✅ Raw Text Extracted Successfully!");
+                    hasDocument = true;
+                    console.log(`✅ Raw Text Extracted! Found ${extractedText.length} characters.`);
                 }
             } catch (err) {
-                console.error("Warning: Could not parse file text.", err);
+                console.error("❌ Failed to parse file text.", err);
             }
         }
 
-        // 5. INJECT EXTRACTED TEXT INTO PROMPT
         const prompt = `
         You are an expert teacher creating an exam paper. 
         Generate a question paper based on these exact requirements:
@@ -55,7 +59,10 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         """
         ${extractedText}
         """
-        CRITICAL INSTRUCTION: You MUST use the "SOURCE MATERIAL" above to formulate your questions. If the material is empty, ignore it.
+        
+        ${hasDocument ? 
+        "CRITICAL INSTRUCTION: You MUST generate questions that test the knowledge contained EXACTLY in the 'SOURCE MATERIAL' above. Do not invent questions outside of this provided text." 
+        : "No document was provided. Generate standard questions based on the additional instructions."}
 
         CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact structure. 
         For the "type" field in each section, you MUST strictly use one of these exact strings so the frontend can render it: 
@@ -64,7 +71,7 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
 
         {
           "assignmentDetails": {
-            "subject": "Determined by instructions",
+            "subject": "Determined by instructions/document",
             "dueDate": "${order.dueDate}",
             "totalMarks": ${order.totals.marks}
           },
