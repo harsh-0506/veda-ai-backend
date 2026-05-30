@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk'); 
 const multer = require('multer');
-const pdfParse = require('pdf-parse'); // The package
+// Notice: We removed the old pdf-parse require from here!
 
 const app = express();
 app.use(cors());
@@ -25,9 +25,13 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
-                    // THE FIX: Bulletproof way to call pdfParse whether it's an object or a function
-                    const parseFunction = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
-                    const pdfData = await parseFunction(req.file.buffer);
+                    
+                    // THE ULTIMATE FIX: Modern Dynamic Import
+                    // This bypasses all the Node.js version conflicts
+                    const pdfParseModule = await import('pdf-parse');
+                    const extractPdf = pdfParseModule.default || pdfParseModule;
+                    
+                    const pdfData = await extractPdf(req.file.buffer);
                     
                     extractedText = pdfData.text;
                     hasDocument = true;
