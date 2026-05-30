@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk'); 
 const multer = require('multer');
-// Notice: We removed the old pdf-parse require from here!
+const pdfParse = require('pdf-parse'); // <-- THE MISSING TOOL IS BACK!
 
 const app = express();
 app.use(cors());
@@ -21,25 +21,20 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         let extractedText = "No source document provided.";
         let hasDocument = false; 
 
-        if (req.file) {
-            console.log(`📄 File received: ${req.file.originalname}`);
-            try {
-                // 4. THE DIAGNOSTIC PROBE
+        // 4. THE CLEANED DIAGNOSTIC PROBE
         if (req.file) {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
                     
-                    // --- START PROBE ---
                     console.log("🚨 DIAGNOSTIC 1: typeof pdfParse is:", typeof pdfParse);
                     
                     if (typeof pdfParse === 'object') {
                         console.log("🚨 DIAGNOSTIC 2: Keys inside pdfParse are:", Object.keys(pdfParse));
                         console.log("🚨 DIAGNOSTIC 3: Is there a default?", typeof pdfParse.default);
                     }
-                    // --- END PROBE ---
 
-                    // We will attempt the standard call just to see if it still fails
+                    // Attempt extraction
                     const pdfData = await pdfParse(req.file.buffer);
                     extractedText = pdfData.text;
                     hasDocument = true;
@@ -52,14 +47,6 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
                 }
             } catch (err) {
                 console.error("❌ Failed to parse file text.", err.message);
-            }
-        } else {
-                    extractedText = req.file.buffer.toString('utf-8');
-                    hasDocument = true;
-                    console.log(`✅ Raw Text Extracted! Found ${extractedText.length} characters.`);
-                }
-            } catch (err) {
-                console.error("❌ Failed to parse file text.", err);
             }
         }
 
