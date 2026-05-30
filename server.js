@@ -22,23 +22,33 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         let hasDocument = false; 
 
         // 4. THE CLEANED DIAGNOSTIC PROBE
+        // 4. THE CALIBRATED EXTRACTION PIPELINE
         if (req.file) {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
                     
-                    console.log("🚨 DIAGNOSTIC 1: typeof pdfParse is:", typeof pdfParse);
+                    // --- THE FIX ---
+                    // We dynamically check if it's a direct function or hidden inside the toolbox
+                    const extractPdf = typeof pdfParse === 'function' ? pdfParse : pdfParse.PDFParse || pdfParse.default;
                     
-                    if (typeof pdfParse === 'object') {
-                        console.log("🚨 DIAGNOSTIC 2: Keys inside pdfParse are:", Object.keys(pdfParse));
-                        console.log("🚨 DIAGNOSTIC 3: Is there a default?", typeof pdfParse.default);
+                    if (!extractPdf) {
+                        throw new Error("Could not locate the extraction function inside pdf-parse.");
                     }
 
-                    // Attempt extraction
-                    const pdfData = await pdfParse(req.file.buffer);
+                    // Now we run the actual tool!
+                    const pdfData = await extractPdf(req.file.buffer);
+                    // ---------------
+                    
                     extractedText = pdfData.text;
                     hasDocument = true;
+                    
                     console.log(`✅ PDF Extracted! Found ${extractedText.length} characters of text.`);
+                    
+                    // Safety check for scanned PDFs
+                    if (extractedText.trim().length < 50) {
+                        console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
+                    }
 
                 } else {
                     extractedText = req.file.buffer.toString('utf-8');
