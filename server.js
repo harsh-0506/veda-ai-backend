@@ -24,24 +24,36 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         if (req.file) {
             console.log(`📄 File received: ${req.file.originalname}`);
             try {
+                // 4. THE DIAGNOSTIC PROBE
+        if (req.file) {
+            console.log(`📄 File received: ${req.file.originalname}`);
+            try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
                     
-                    // THE ULTIMATE FIX: Modern Dynamic Import
-                    // This bypasses all the Node.js version conflicts
-                    const pdfParseModule = await import('pdf-parse');
-                    const extractPdf = pdfParseModule.default || pdfParseModule;
+                    // --- START PROBE ---
+                    console.log("🚨 DIAGNOSTIC 1: typeof pdfParse is:", typeof pdfParse);
                     
-                    const pdfData = await extractPdf(req.file.buffer);
-                    
+                    if (typeof pdfParse === 'object') {
+                        console.log("🚨 DIAGNOSTIC 2: Keys inside pdfParse are:", Object.keys(pdfParse));
+                        console.log("🚨 DIAGNOSTIC 3: Is there a default?", typeof pdfParse.default);
+                    }
+                    // --- END PROBE ---
+
+                    // We will attempt the standard call just to see if it still fails
+                    const pdfData = await pdfParse(req.file.buffer);
                     extractedText = pdfData.text;
                     hasDocument = true;
-                    
                     console.log(`✅ PDF Extracted! Found ${extractedText.length} characters of text.`);
-                    
-                    if (extractedText.trim().length < 50) {
-                        console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
-                    }
+
                 } else {
+                    extractedText = req.file.buffer.toString('utf-8');
+                    hasDocument = true;
+                    console.log(`✅ Raw Text Extracted! Found ${extractedText.length} characters.`);
+                }
+            } catch (err) {
+                console.error("❌ Failed to parse file text.", err.message);
+            }
+        } else {
                     extractedText = req.file.buffer.toString('utf-8');
                     hasDocument = true;
                     console.log(`✅ Raw Text Extracted! Found ${extractedText.length} characters.`);
