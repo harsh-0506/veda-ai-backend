@@ -28,20 +28,25 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             try {
                 if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
                     
-                    // THE V2 EXTRACTION LOGIC
-                    // We initialize the new parser class and pass the file buffer into the 'data' property
                     const parser = new PDFParse({ data: req.file.buffer });
-                    
-                    // We extract the text
                     const pdfData = await parser.getText();
-                    
-                    // We destroy the parser to free up server memory
                     await parser.destroy();
                     
                     extractedText = pdfData.text;
+                    
+                    // --- THE NEW FIX: AI MEMORY LIMITER ---
+                    // Groq has a limit on how much text it can read at once.
+                    // 25,000 characters is a very safe limit that won't crash the server.
+                    const MAX_CHARS = 25000; 
+                    if (extractedText.length > MAX_CHARS) {
+                        console.log(`⚠️ Document too large! Truncating from ${extractedText.length} down to ${MAX_CHARS} characters.`);
+                        extractedText = extractedText.substring(0, MAX_CHARS);
+                    }
+                    // --------------------------------------
+
                     hasDocument = true;
                     
-                    console.log(`✅ PDF Extracted! Found ${extractedText.length} characters of text.`);
+                    console.log(`✅ PDF Extracted and ready! Sending ${extractedText.length} characters to AI.`);
                     
                     if (extractedText.trim().length < 50) {
                         console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
