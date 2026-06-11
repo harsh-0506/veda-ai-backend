@@ -62,46 +62,125 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             }
         }
 
+        // const prompt = `
+        // You are an expert teacher creating an exam paper. 
+        // Generate a question paper based on these exact requirements:
+        // - Total Questions: ${order.totals.questions}
+        // - Total Marks: ${order.totals.marks}
+        // - Additional Instructions: ${order.instructions || "None provided"}
+        // - Sections required: ${JSON.stringify(order.sections)}
+
+        // SOURCE MATERIAL UPLOADED BY TEACHER:
+        // """
+        // ${extractedText}
+        // """
+        
+        // ${hasDocument ? 
+        // "CRITICAL INSTRUCTION: You MUST generate questions that test the knowledge contained EXACTLY in the 'SOURCE MATERIAL' above. Do not invent questions outside of this provided text." 
+        // : "No document was provided. Generate standard questions based on the additional instructions."}
+
+        // CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact structure. 
+        // For the "type" field in each section, you MUST strictly use one of these exact strings so the frontend can render it: 
+        // "Multiple Choice Questions", "Short Questions", "Numerical Problems", or "Diagram/Graph-Based Questions".
+        // If the type is "Multiple Choice Questions", you MUST include an "options" array with 4 choices.
+
+        // {
+        //   "assignmentDetails": {
+        //     "subject": "Determined by instructions/document",
+        //     "dueDate": "${order.dueDate}",
+        //     "totalMarks": ${order.totals.marks}
+        //   },
+        //   "sections": [
+        //     {
+        //       "sectionTitle": "Section A",
+        //       "type": "Multiple Choice Questions", 
+        //       "instructions": "Attempt all questions.",
+        //       "questions": [
+        //         {
+        //           "id": "q1",
+        //           "text": "Actual question text goes here...",
+        //           "options": ["A) First", "B) Second", "C) Third", "D) Fourth"],
+        //           "difficulty": "Easy",
+        //           "marks": 2
+        //         }
+        //       ]
+        //     }
+        //   ]
+        // }
+        // `;
+
         const prompt = `
         You are an expert teacher creating an exam paper. 
-        Generate a question paper based on these exact requirements:
-        - Total Questions: ${order.totals.questions}
-        - Total Marks: ${order.totals.marks}
-        - Additional Instructions: ${order.instructions || "None provided"}
-        - Sections required: ${JSON.stringify(order.sections)}
-
-        SOURCE MATERIAL UPLOADED BY TEACHER:
+        Generate a comprehensive test based on the following SOURCE MATERIAL.
+        
+        SOURCE MATERIAL:
         """
         ${extractedText}
         """
+
+        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
+        Every single question must be its own object with an "id" and a "marks" value so the frontend UI can reorder them and adjust scoring.
         
-        ${hasDocument ? 
-        "CRITICAL INSTRUCTION: You MUST generate questions that test the knowledge contained EXACTLY in the 'SOURCE MATERIAL' above. Do not invent questions outside of this provided text." 
-        : "No document was provided. Generate standard questions based on the additional instructions."}
+        Follow this exact section format from the reference exam:
+        1. Multiple Choice Questions
+        2. Fill in the blanks
+        3. Write True or False
+        4. Answer in one word
+        5. Give two examples
+        6. Match the following
+        7. Define the following
+        8. Give reason for your answers
+        9. Answer the following in brief
+        10. Answer the following in detail
+        11. Draw the diagram and label it
 
-        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact structure. 
-        For the "type" field in each section, you MUST strictly use one of these exact strings so the frontend can render it: 
-        "Multiple Choice Questions", "Short Questions", "Numerical Problems", or "Diagram/Graph-Based Questions".
-        If the type is "Multiple Choice Questions", you MUST include an "options" array with 4 choices.
-
+        Use this exact JSON schema:
         {
-          "assignmentDetails": {
-            "subject": "Determined by instructions/document",
-            "dueDate": "${order.dueDate}",
+          "examDetails": {
+            "schoolName": "Hallmark World School",
+            "examination": "Half Yearly Examination",
+            "subject": "Science",
+            "class": "3",
             "totalMarks": ${order.totals.marks}
           },
           "sections": [
             {
-              "sectionTitle": "Section A",
-              "type": "Multiple Choice Questions", 
-              "instructions": "Attempt all questions.",
+              "sectionId": "sec-1",
+              "sectionTitle": "I. Multiple Choice Questions",
+              "type": "Multiple Choice Questions",
               "questions": [
                 {
-                  "id": "q1",
-                  "text": "Actual question text goes here...",
-                  "options": ["A) First", "B) Second", "C) Third", "D) Fourth"],
-                  "difficulty": "Easy",
-                  "marks": 2
+                  "id": "mcq-1",
+                  "text": "Which of these is the grainy part of soil?",
+                  "options": ["a. Clay", "b. Sand", "c. Humus", "d. Pebbles"],
+                  "answer": "b. Sand",
+                  "marks": 0.5
+                }
+              ]
+            },
+            {
+              "sectionId": "sec-2",
+              "sectionTitle": "II. Fill in the blanks",
+              "type": "Short Questions",
+              "questions": [
+                {
+                  "id": "fib-1",
+                  "text": "The holes on the moon are called _________.",
+                  "answer": "craters",
+                  "marks": 1
+                }
+              ]
+            },
+            {
+              "sectionId": "sec-10",
+              "sectionTitle": "X. Answer the following in detail",
+              "type": "Long Questions",
+              "questions": [
+                {
+                  "id": "long-1",
+                  "text": "Describe how day and night are caused.",
+                  "answer": "Detailed answer key goes here...",
+                  "marks": 3
                 }
               ]
             }
