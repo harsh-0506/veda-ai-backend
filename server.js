@@ -43,14 +43,9 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
                     hasDocument = true;
                     console.log(`✅ PDF Extracted and ready! Sending ${extractedText.length} characters to AI.`);
                     
-                    if (extractedText.trim().length < 50) {
-                        console.log("⚠️ WARNING: Very little text found. Is this a scanned image instead of a text PDF?");
-                    }
-
                 } else {
                     extractedText = req.file.buffer.toString('utf-8');
                     hasDocument = true;
-                    console.log(`✅ Raw Text Extracted! Found ${extractedText.length} characters.`);
                 }
             } catch (err) {
                 console.error("❌ Failed to parse file text.", err.message);
@@ -64,9 +59,11 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             isTextGarbage = true;
         }
 
+        // --- THE UPGRADED, STRICT PROMPT ---
         const prompt = `
         You are an expert teacher creating an exam paper. 
         
+        GRADE LEVEL: Class 3 (Approx. 8-9 years old). The vocabulary and difficulty MUST be strictly appropriate for young children. DO NOT use advanced concepts.
         SUBJECT: ${order.subject || "Not specified"}
         ADDITIONAL INSTRUCTIONS: ${order.instructions || "None"}
 
@@ -78,18 +75,19 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         TEACHER'S REQUIREMENTS:
         Generate exactly these sections, question types, and question counts:
         ${JSON.stringify(order.sections, null, 2)}
-        Total Marks Based on 'Attempt' limit: ${order.totals.marks}
 
-        CRITICAL INSTRUCTIONS FOR AI:
-        1. If the SOURCE MATERIAL says "UNREADABLE_DOCUMENT_FORMAT" or is garbage, rely ENTIRELY on the SUBJECT to generate a highly accurate, academic test from your own knowledge.
-        2. Give Examples: If a section is "Give examples", look at "extraParam" to know exactly how many examples to ask for (e.g., "Give 3 examples of...").
-        3. Assertion/Reason: Use standard A & R formatting with 4 choices.
-        4. Give Reasons: Formulate questions starting with "Give reasons why...".
-        5. Internal Choice (OR): If a section has "hasOrChoice: true", you MUST add an "orQuestionText" property to AT LEAST ONE question in that section to give the student an alternative.
-        6. Attempt Limits: If "attemptCount" is less than "count", add instructions to the section title (e.g., "Attempt any 3 out of 4 questions").
+        CRITICAL INSTRUCTIONS FOR AI (READ CAREFULLY):
+        1. NO HALLUCINATION: If the SOURCE MATERIAL says "UNREADABLE_DOCUMENT_FORMAT", rely ENTIRELY on the SUBJECT and ADDITIONAL INSTRUCTIONS to generate a highly accurate Class 3 test. 
+        2. NO REPETITION: You MUST NOT repeat the same question across different sections. Every question must be unique.
+        3. Match the Following: If a section is "Match the following", you MUST NOT provide standard text questions. Instead, provide a "matchPairs" array inside the question object containing 4-5 items to match.
+        4. Give Examples: Look at "extraParam" to know exactly how many examples to ask for (e.g., "Give 3 examples of...").
+        5. Assertion/Reason: Use standard A & R formatting with 4 standard choices.
+        6. Internal Choice (OR): If a section has "hasOrChoice: true", add an "orQuestionText" property to AT LEAST ONE question in that section.
+        7. Attempt Limits: If "attemptCount" is less than "count", add instructions to the section title (e.g., "Attempt any 3 questions").
 
-        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. The schoolName and examination fields MUST be strictly hardcoded as shown.
+        CRITICAL REQUIREMENT: Output ONLY valid JSON. The schoolName MUST be exactly "HALLMARK WORLD SCHOOL".
         
+        Use this exact JSON schema:
         {
           "assignmentDetails": {
             "schoolName": "HALLMARK WORLD SCHOOL",
@@ -108,9 +106,10 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
               "questions": [
                 {
                   "id": "q-1",
-                  "text": "Actual primary question text goes here...",
-                  "orQuestionText": "Alternative question text goes here (ONLY if hasOrChoice is true for this section, otherwise omit this field)",
+                  "text": "Primary question text here... (Leave blank if this is a Match the Following question)",
+                  "orQuestionText": "Alternative question text goes here (ONLY if hasOrChoice is true)",
                   "options": ["a", "b", "c", "d"], 
+                  "matchPairs": [ {"left": "Apple", "right": "Fruit"}, {"left": "Potato", "right": "Vegetable"} ], // ONLY include this array if the type is "Match the following"
                   "answer": "The correct answer key",
                   "marks": 1.25
                 }
