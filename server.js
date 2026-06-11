@@ -119,20 +119,26 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         """
 
         TEACHER'S REQUIREMENTS:
-        The teacher has specifically requested the following section types, question counts, and marks. You MUST generate EXACTLY these sections, with the exact number of questions requested for each:
+        The teacher has specifically requested the following section types, question counts, and marks. 
+        You MUST generate EXACTLY these sections, with the exact number of questions requested for each:
         ${JSON.stringify(order.sections, null, 2)}
         
         Total Required Marks: ${order.totals.marks}
 
+        SPECIAL FORMATTING RULES:
+        1. If a section is "Give examples", look at the "extraParam" field. This tells you EXACTLY how many examples to ask for per question (e.g., "Give 3 examples of...").
+        2. If a section is "Assertion and Reason", formulate the question with an Assertion (A) and a Reason (R), and provide the standard 4 options.
+        3. If a section is "Give reasons", formulate questions starting with "Give reasons why...".
+
         CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
-        Every single question must be its own object with an "id" and a "marks" value.
+        Every single question must be its own object with an "id" and a numeric "marks" value (which can be a decimal like 0.5 or 1.5).
         
         Use this exact JSON schema:
         {
-          "examDetails": {
+          "assignmentDetails": {
             "schoolName": "Hallmark World School",
             "examination": "Half Yearly Examination",
-            "subject": "Determined by document",
+            "subject": "${order.subject || "Determined by document"}",
             "class": "Determined by document",
             "totalMarks": ${order.totals.marks}
           },
@@ -144,10 +150,10 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
               "questions": [
                 {
                   "id": "q-1",
-                  "text": "Actual question text goes here...",
-                  "options": ["a", "b", "c", "d"], // ONLY include options array if it is a Multiple Choice question
+                  "text": "Actual question text goes here... (Include Assertion/Reason text here if applicable)",
+                  "options": ["a", "b", "c", "d"], 
                   "answer": "The correct answer key",
-                  "marks": 2
+                  "marks": 2.5
                 }
               ]
             }
