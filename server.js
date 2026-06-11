@@ -57,7 +57,7 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             }
         }
 
-        // --- NEW: GARBAGE TEXT DETECTOR ---
+        // --- THE GARBAGE TEXT DETECTOR ---
         let isTextGarbage = false;
         if (hasDocument && extractedText.trim().length < 300) {
             console.log("⚠️ WARNING: Extremely low character count detected. Flagging document as unreadable for AI.");
@@ -67,7 +67,7 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         const prompt = `
         You are an expert teacher creating an exam paper. 
         
-        SUBJECT REQUESTED BY TEACHER: ${order.subject || "Not specified"}
+        SUBJECT: ${order.subject || "Not specified"}
         ADDITIONAL INSTRUCTIONS: ${order.instructions || "None"}
 
         SOURCE MATERIAL UPLOADED BY TEACHER:
@@ -78,39 +78,41 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         TEACHER'S REQUIREMENTS:
         Generate exactly these sections, question types, and question counts:
         ${JSON.stringify(order.sections, null, 2)}
-        Total Required Marks: ${order.totals.marks}
+        Total Marks Based on 'Attempt' limit: ${order.totals.marks}
 
         CRITICAL INSTRUCTIONS FOR AI:
-        1. If the SOURCE MATERIAL says "UNREADABLE_DOCUMENT_FORMAT" or is mostly blank/garbage, DO NOT generate questions about blank pages. Instead, rely ENTIRELY on the "SUBJECT REQUESTED BY TEACHER" and "ADDITIONAL INSTRUCTIONS" to generate a highly accurate, academic test from your own knowledge.
-        2. If the user provided a Subject (e.g., "Science"), you MUST write questions about that Subject.
-        3. If a section is "Give examples", look at the "extraParam" field to know exactly how many examples to ask for per question (e.g., "Give 3 examples of...").
-        4. If a section is "Assertion and Reason", use standard A & R formatting with 4 choices.
-        5. If a section is "Give reasons", formulate questions starting with "Give reasons why...".
+        1. If the SOURCE MATERIAL says "UNREADABLE_DOCUMENT_FORMAT" or is garbage, rely ENTIRELY on the SUBJECT to generate a highly accurate, academic test from your own knowledge.
+        2. Give Examples: If a section is "Give examples", look at "extraParam" to know exactly how many examples to ask for (e.g., "Give 3 examples of...").
+        3. Assertion/Reason: Use standard A & R formatting with 4 choices.
+        4. Give Reasons: Formulate questions starting with "Give reasons why...".
+        5. Internal Choice (OR): If a section has "hasOrChoice: true", you MUST add an "orQuestionText" property to AT LEAST ONE question in that section to give the student an alternative.
+        6. Attempt Limits: If "attemptCount" is less than "count", add instructions to the section title (e.g., "Attempt any 3 out of 4 questions").
 
-        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
-        Every single question must be its own object with an "id" and a numeric "marks" value (which can be a decimal like 0.5).
+        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. The schoolName and examination fields MUST be strictly hardcoded as shown.
         
-        Use this exact JSON schema:
         {
           "assignmentDetails": {
-            "schoolName": "Hallmark World School",
-            "examination": "Half Yearly Examination",
+            "schoolName": "HALLMARK WORLD SCHOOL",
+            "examination": "HALF YEARLY EXAMINATION",
             "subject": "${order.subject || "Determined by document"}",
-            "class": "Determined by document",
+            "branch": "${order.branchName || ""}",
+            "teacherName": "${order.teacherName || ""}",
             "totalMarks": ${order.totals.marks}
           },
           "sections": [
             {
               "sectionId": "sec-1",
               "sectionTitle": "Section A: [Insert Type Here]",
+              "instructions": "Attempt [attemptCount] questions from this section.",
               "type": "[Matches the type requested by teacher]",
               "questions": [
                 {
                   "id": "q-1",
-                  "text": "Actual question text goes here... (Include Assertion/Reason text here if applicable)",
+                  "text": "Actual primary question text goes here...",
+                  "orQuestionText": "Alternative question text goes here (ONLY if hasOrChoice is true for this section, otherwise omit this field)",
                   "options": ["a", "b", "c", "d"], 
                   "answer": "The correct answer key",
-                  "marks": 2.5
+                  "marks": 1.25
                 }
               ]
             }
