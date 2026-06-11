@@ -34,18 +34,13 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
                     
                     extractedText = pdfData.text;
                     
-                    // --- THE NEW FIX: AI MEMORY LIMITER ---
-                    // Groq has a limit on how much text it can read at once.
-                    // 25,000 characters is a very safe limit that won't crash the server.
                     const MAX_CHARS = 25000; 
                     if (extractedText.length > MAX_CHARS) {
                         console.log(`⚠️ Document too large! Truncating from ${extractedText.length} down to ${MAX_CHARS} characters.`);
                         extractedText = extractedText.substring(0, MAX_CHARS);
                     }
-                    // --------------------------------------
 
                     hasDocument = true;
-                    
                     console.log(`✅ PDF Extracted and ready! Sending ${extractedText.length} characters to AI.`);
                     
                     if (extractedText.trim().length < 50) {
@@ -62,76 +57,38 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
             }
         }
 
-        // const prompt = `
-        // You are an expert teacher creating an exam paper. 
-        // Generate a question paper based on these exact requirements:
-        // - Total Questions: ${order.totals.questions}
-        // - Total Marks: ${order.totals.marks}
-        // - Additional Instructions: ${order.instructions || "None provided"}
-        // - Sections required: ${JSON.stringify(order.sections)}
-
-        // SOURCE MATERIAL UPLOADED BY TEACHER:
-        // """
-        // ${extractedText}
-        // """
-        
-        // ${hasDocument ? 
-        // "CRITICAL INSTRUCTION: You MUST generate questions that test the knowledge contained EXACTLY in the 'SOURCE MATERIAL' above. Do not invent questions outside of this provided text." 
-        // : "No document was provided. Generate standard questions based on the additional instructions."}
-
-        // CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact structure. 
-        // For the "type" field in each section, you MUST strictly use one of these exact strings so the frontend can render it: 
-        // "Multiple Choice Questions", "Short Questions", "Numerical Problems", or "Diagram/Graph-Based Questions".
-        // If the type is "Multiple Choice Questions", you MUST include an "options" array with 4 choices.
-
-        // {
-        //   "assignmentDetails": {
-        //     "subject": "Determined by instructions/document",
-        //     "dueDate": "${order.dueDate}",
-        //     "totalMarks": ${order.totals.marks}
-        //   },
-        //   "sections": [
-        //     {
-        //       "sectionTitle": "Section A",
-        //       "type": "Multiple Choice Questions", 
-        //       "instructions": "Attempt all questions.",
-        //       "questions": [
-        //         {
-        //           "id": "q1",
-        //           "text": "Actual question text goes here...",
-        //           "options": ["A) First", "B) Second", "C) Third", "D) Fourth"],
-        //           "difficulty": "Easy",
-        //           "marks": 2
-        //         }
-        //       ]
-        //     }
-        //   ]
-        // }
-        // `;
+        // --- NEW: GARBAGE TEXT DETECTOR ---
+        let isTextGarbage = false;
+        if (hasDocument && extractedText.trim().length < 300) {
+            console.log("⚠️ WARNING: Extremely low character count detected. Flagging document as unreadable for AI.");
+            isTextGarbage = true;
+        }
 
         const prompt = `
         You are an expert teacher creating an exam paper. 
-        Generate a comprehensive test based on the following SOURCE MATERIAL.
         
-        SOURCE MATERIAL:
+        SUBJECT REQUESTED BY TEACHER: ${order.subject || "Not specified"}
+        ADDITIONAL INSTRUCTIONS: ${order.instructions || "None"}
+
+        SOURCE MATERIAL UPLOADED BY TEACHER:
         """
-        ${extractedText}
+        ${isTextGarbage ? "UNREADABLE_DOCUMENT_FORMAT" : extractedText}
         """
 
         TEACHER'S REQUIREMENTS:
-        The teacher has specifically requested the following section types, question counts, and marks. 
-        You MUST generate EXACTLY these sections, with the exact number of questions requested for each:
+        Generate exactly these sections, question types, and question counts:
         ${JSON.stringify(order.sections, null, 2)}
-        
         Total Required Marks: ${order.totals.marks}
 
-        SPECIAL FORMATTING RULES:
-        1. If a section is "Give examples", look at the "extraParam" field. This tells you EXACTLY how many examples to ask for per question (e.g., "Give 3 examples of...").
-        2. If a section is "Assertion and Reason", formulate the question with an Assertion (A) and a Reason (R), and provide the standard 4 options.
-        3. If a section is "Give reasons", formulate questions starting with "Give reasons why...".
+        CRITICAL INSTRUCTIONS FOR AI:
+        1. If the SOURCE MATERIAL says "UNREADABLE_DOCUMENT_FORMAT" or is mostly blank/garbage, DO NOT generate questions about blank pages. Instead, rely ENTIRELY on the "SUBJECT REQUESTED BY TEACHER" and "ADDITIONAL INSTRUCTIONS" to generate a highly accurate, academic test from your own knowledge.
+        2. If the user provided a Subject (e.g., "Science"), you MUST write questions about that Subject.
+        3. If a section is "Give examples", look at the "extraParam" field to know exactly how many examples to ask for per question (e.g., "Give 3 examples of...").
+        4. If a section is "Assertion and Reason", use standard A & R formatting with 4 choices.
+        5. If a section is "Give reasons", formulate questions starting with "Give reasons why...".
 
         CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
-        Every single question must be its own object with an "id" and a numeric "marks" value (which can be a decimal like 0.5 or 1.5).
+        Every single question must be its own object with an "id" and a numeric "marks" value (which can be a decimal like 0.5).
         
         Use this exact JSON schema:
         {
