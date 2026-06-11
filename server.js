@@ -61,7 +61,7 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
 
         // --- THE UPGRADED, STRICT PROMPT ---
         const prompt = `
-        You are an expert teacher creating a Science exam paper for Class 3 students (8-9 years old). 
+        You are an expert teacher creating a Science exam paper for Class 3 students. 
         
         SUBJECT: ${order.subject || "Not specified"}
         ADDITIONAL INSTRUCTIONS: ${order.instructions || "None"}
@@ -76,21 +76,17 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         ${JSON.stringify(order.sections, null, 2)}
         Total Marks Based on 'Attempt' limit: ${order.totals.marks}
 
-        CRITICAL INSTRUCTIONS FOR AI (STRICTLY ENFORCED):
-        1. ZERO HALLUCINATION (STRICT TEXT-BOUND RULE): You MUST extract facts ONLY from the "SOURCE MATERIAL" provided above. The material explicitly covers topics like Seeds, Germination, Kharif/Rabi Crops, Balanced Diet, Deficiency Diseases, and Rocks/Minerals. Do NOT invent questions about outer space, planets, advanced biology, or anything else not explicitly written in the provided text.
-        2. GRADE LEVEL: This is for Class 3. Keep vocabulary simple and appropriate for 8-9 year olds.
-        3. ABSOLUTELY NO REPETITION: You MUST track the concepts you test. If you test "seed coat" or "magma" in the MCQ section, you are STRICTLY FORBIDDEN from asking about them again in the Fill in the Blanks, True/False, or One Word sections. Every single question across the ENTIRE exam must test a completely unique concept from the text.
-        4. Fill in the blanks: The question "text" MUST be a complex sentence that tests comprehension. DO NOT just put the blank at the end. The blank line (represented by "__________") MUST be in the middle of the sentence. 
-           - BAD (Avoid this): "The outer covering of a seed is called the __________."
-           - GOOD: "The __________ acts as the outer protective layer of a seed, ensuring the baby plant inside remains safe."
-           - Ensure the sentence requires the student to understand the relationship between the concepts.
-        5. Match the Following: If a section is "Match the following", do NOT write standard text questions. You must provide a "matchPairs" array inside the question object containing 4 to 5 key-value pairs pulled from the text (e.g., {"left": "Carrot", "right": "Root"}).
-        6. Give Examples: Look at the "extraParam" field to know exactly how many examples to ask for (e.g., "Give 2 examples of Rabi crops").
-        7. Assertion/Reason: Use standard A & R formatting with 4 choices.
-        8. Internal Choice (OR): If a section has "hasOrChoice: true", you MUST add an "orQuestionText" property to AT LEAST ONE question in that section to give the student an alternative choice.
-        9. Attempt Limits: If "attemptCount" is less than "count", add instructions to the section title (e.g., "Attempt any 3 out of 4 questions").
+        STRICT BEHAVIORAL RULES:
+        1. TEXT-BOUND ONLY: You MUST ONLY extract facts from the "SOURCE MATERIAL". If the material says "UNREADABLE_DOCUMENT_FORMAT", use the SUBJECT to generate questions strictly based on standard Class 3 Science curriculum. NEVER invent questions about planets, outer space, or advanced biology if not in the text.
+        2. NO REPETITION: You are forbidden from reusing a concept. For example, if you ask about 'seed coat' in MCQs, you CANNOT ask about it in Fill in the Blanks. Every single question must be unique.
+        3. FILL IN THE BLANKS: The blank line must be "__________". It MUST be in the middle of a descriptive sentence. DO NOT place it at the end. Example: "The __________ protects the baby plant inside the seed."
+        4. MATCH THE FOLLOWING: If the type is "Match the following", you MUST provide a "matchPairs" array with 4-5 key-value pairs. Do NOT put standard text questions in this section.
+        5. OR CHOICE: If 'hasOrChoice' is true, add "orQuestionText" to at least one question in that section.
+        6. ATTEMPT LIMITS: For any section where attemptCount < count, include the instruction: "Attempt any [attemptCount] out of [count] questions."
+        7. MARKING: You must output 'marks' as a number (e.g., 0.25, 0.5, 1.25). 
 
-        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. The schoolName and examination fields MUST be strictly hardcoded as shown below.
+        OUTPUT FORMAT (STRICT JSON):
+        You must return ONLY the JSON object. Do not include any conversational filler. 
         
         {
           "assignmentDetails": {
@@ -104,18 +100,18 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
           "sections": [
             {
               "sectionId": "sec-1",
-              "sectionTitle": "Section A: [Insert Type Here]",
-              "instructions": "Attempt [attemptCount] questions from this section.",
-              "type": "[Matches the type requested by teacher]",
+              "sectionTitle": "Section Title",
+              "instructions": "Attempt any N questions from this section.",
+              "type": "Must match the requested type",
               "questions": [
                 {
                   "id": "q-1",
-                  "text": "Primary question text here... (Derived strictly from the source text. If Fill in the blank, include __________)",
-                  "orQuestionText": "Alternative question text goes here (ONLY if hasOrChoice is true for this section, otherwise omit this field)",
+                  "text": "The sentence with __________ in the middle (for blanks) or the full question text.",
+                  "orQuestionText": "Alternative question text (only if OR is enabled)",
                   "options": ["a", "b", "c", "d"], 
-                  "matchPairs": [ {"left": "Igneous rock", "right": "Pumice"}, {"left": "Deficiency of iron", "right": "Anaemia"} ],
-                  "answer": "The correct answer key",
-                  "marks": 1.25
+                  "matchPairs": [ {"left": "Term A", "right": "Definition A"} ],
+                  "answer": "Correct answer",
+                  "marks": 0.5
                 }
               ]
             }
