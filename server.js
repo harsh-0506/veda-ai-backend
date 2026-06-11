@@ -118,69 +118,36 @@ app.post('/api/generate', upload.single('document'), async (req, res) => {
         ${extractedText}
         """
 
-        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
-        Every single question must be its own object with an "id" and a "marks" value so the frontend UI can reorder them and adjust scoring.
+        TEACHER'S REQUIREMENTS:
+        The teacher has specifically requested the following section types, question counts, and marks. You MUST generate EXACTLY these sections, with the exact number of questions requested for each:
+        ${JSON.stringify(order.sections, null, 2)}
         
-        Follow this exact section format from the reference exam:
-        1. Multiple Choice Questions
-        2. Fill in the blanks
-        3. Write True or False
-        4. Answer in one word
-        5. Give two examples
-        6. Match the following
-        7. Define the following
-        8. Give reason for your answers
-        9. Answer the following in brief
-        10. Answer the following in detail
-        11. Draw the diagram and label it
+        Total Required Marks: ${order.totals.marks}
 
+        CRITICAL REQUIREMENT: Output ONLY valid JSON using this exact modular structure. 
+        Every single question must be its own object with an "id" and a "marks" value.
+        
         Use this exact JSON schema:
         {
           "examDetails": {
             "schoolName": "Hallmark World School",
             "examination": "Half Yearly Examination",
-            "subject": "Science",
-            "class": "3",
+            "subject": "Determined by document",
+            "class": "Determined by document",
             "totalMarks": ${order.totals.marks}
           },
           "sections": [
             {
               "sectionId": "sec-1",
-              "sectionTitle": "I. Multiple Choice Questions",
-              "type": "Multiple Choice Questions",
+              "sectionTitle": "Section A: [Insert Type Here]",
+              "type": "[Matches the type requested by teacher]",
               "questions": [
                 {
-                  "id": "mcq-1",
-                  "text": "Which of these is the grainy part of soil?",
-                  "options": ["a. Clay", "b. Sand", "c. Humus", "d. Pebbles"],
-                  "answer": "b. Sand",
-                  "marks": 0.5
-                }
-              ]
-            },
-            {
-              "sectionId": "sec-2",
-              "sectionTitle": "II. Fill in the blanks",
-              "type": "Short Questions",
-              "questions": [
-                {
-                  "id": "fib-1",
-                  "text": "The holes on the moon are called _________.",
-                  "answer": "craters",
-                  "marks": 1
-                }
-              ]
-            },
-            {
-              "sectionId": "sec-10",
-              "sectionTitle": "X. Answer the following in detail",
-              "type": "Long Questions",
-              "questions": [
-                {
-                  "id": "long-1",
-                  "text": "Describe how day and night are caused.",
-                  "answer": "Detailed answer key goes here...",
-                  "marks": 3
+                  "id": "q-1",
+                  "text": "Actual question text goes here...",
+                  "options": ["a", "b", "c", "d"], // ONLY include options array if it is a Multiple Choice question
+                  "answer": "The correct answer key",
+                  "marks": 2
                 }
               ]
             }
